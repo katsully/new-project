@@ -27,6 +27,8 @@ public:
     NewProjectApp();
     void setup() override;
     void draw() override;
+    std::vector<float> breakUp(string temp);
+    
     
     ivec2   mCurrentCirclePos;
     vec2    mCurrentSquarePos;
@@ -34,6 +36,14 @@ public:
     
     Receiver mReceiver;
     std::map<uint64_t, protocol::endpoint> mConnections;
+    
+    vec3 circle;
+    std::vector<float> leftLeg;
+    std::vector<float> chest;
+    std::vector<float> rightLeg;
+    std::vector<float> rightWrist;
+    std::vector<float> leftWrist;
+    std::vector<float> head;
 };
 
 NewProjectApp::NewProjectApp()
@@ -43,39 +53,32 @@ NewProjectApp::NewProjectApp()
 
 void NewProjectApp::setup()
 {
-    mReceiver.setListener( "/mousemove/1",
-                          [&]( const osc::Message &msg ){
-                              cout << msg[0].int32() << endl;
-                              mCurrentCirclePos.x = msg[0].int32();
-                              mCurrentCirclePos.y = msg[1].int32();
-                          });
-    mReceiver.setListener( "/mouseclick/1",
-                          [&]( const osc::Message &msg ){
-                              mCurrentSquarePos = vec2( msg[0].flt(), msg[1].flt() ) * vec2( getWindowSize() );
-                          });
     mReceiver.setListener( "/notch/LeftLowerLeg/all",
                           [&]( const osc::Message &msg ){
-                              cout << msg[0].string() << endl;
+                              // split up xyx pos and rot values
+                              leftLeg = breakUp(msg[0].string());
+//                              cout << myVect.at(0) << " " <<  myVect.at(1) <<  " " <<  myVect.at(2) << endl;
+//                              circle = vec3(stof(msg[0].string()), stof(msg[1].string()), stof(msg[2].string()));
                           });
     mReceiver.setListener( "/notch/ChestBottom/all",
                           [&]( const osc::Message &msg ){
-                              cout << msg[0].string() << endl;
+                              chest = breakUp(msg[0].string());
                           });
     mReceiver.setListener( "/notch/RightLowerLeg/all",
                           [&]( const osc::Message &msg ){
-                              cout << msg[0].string() << endl;
+                              rightLeg = breakUp(msg[0].string());
                           });
     mReceiver.setListener( "/notch/RightForeArm/all",
                           [&]( const osc::Message &msg ){
-                              cout << msg[0].string() << endl;
+                              rightWrist = breakUp(msg[0].string());
                           });
     mReceiver.setListener( "/notch/LeftForeArm/all",
                           [&]( const osc::Message &msg ){
-                              cout << msg[0].string() << endl;
+                              leftWrist = breakUp(msg[0].string());
                           });
     mReceiver.setListener( "/notch/Head/all",
                           [&]( const osc::Message &msg ){
-                              cout << msg[0].string() << endl;
+                              head = breakUp(msg[0].string());
                           });
     try {
         // Bind the receiver to the endpoint. This function may throw.
@@ -150,9 +153,57 @@ void NewProjectApp::draw()
 {
     gl::clear( GL_COLOR_BUFFER_BIT );
     gl::setMatricesWindow( getWindowSize() );
+
     
-    gl::drawStrokedCircle( mCurrentCirclePos, 100 );
-    gl::drawSolidRect( Rectf( mCurrentSquarePos - vec2( 50 ), mCurrentSquarePos + vec2( 50 ) ) );
+    // left ankle - RED
+    if(leftLeg.size() > 0) {
+        gl::color(Color(1,0,0));
+        gl::drawSolidEllipse(vec2(leftLeg.at(0)+getWindowWidth()/2, getWindowHeight()-(leftLeg.at(1)+getWindowHeight()/2)), 20, 20);
+        gl::drawLine(vec2(0,200), vec2(vec2(leftLeg.at(0)+getWindowWidth()/2, getWindowHeight()-(leftLeg.at(1)+getWindowHeight()/2))));
+    }
+    // chest - GREEN
+    if(chest.size() > 0) {
+        gl::color(Color(0,1,0));
+        gl::drawSolidEllipse(vec2(chest.at(0)+getWindowWidth()/2, getWindowHeight()-(chest.at(1)+getWindowHeight()/2)), 20, 20);
+        gl::drawLine(vec2(getWindowWidth(), 600), vec2(chest.at(0)+getWindowWidth()/2, getWindowHeight()-(chest.at(1)+getWindowHeight()/2)));
+    }
+    // left arm - BLUE
+    if(leftWrist.size() > 0) {
+        gl::color(Color(0,0,1));
+        gl::drawSolidEllipse(vec2(leftWrist.at(0)+getWindowWidth()/2, getWindowHeight()-(leftWrist.at(1)+getWindowHeight()/2)), 20, 20);
+        gl::drawLine(vec2(getWindowWidth(), 400), vec2(leftWrist.at(0)+getWindowWidth()/2, getWindowHeight()-(leftWrist.at(1)+getWindowHeight()/2)));
+    }
+    // right arm - YELLOW
+    if(rightWrist.size() > 0) {
+        gl::color(1,1,0);
+        gl::drawSolidEllipse(vec2(rightWrist.at(0)+getWindowWidth()/2, getWindowHeight()-(rightWrist.at(1)+getWindowHeight()/2)), 20, 20);
+        gl::drawLine(vec2(0,0),vec2(rightWrist.at(0)+getWindowWidth()/2, getWindowHeight()-(rightWrist.at(1)+getWindowHeight()/2)));
+    }
+    // right Leg - PINK
+    if(rightLeg.size() > 0) {
+        gl::color(1,0,1);
+        gl::drawSolidEllipse(vec2(rightLeg.at(0)+getWindowWidth()/2, getWindowHeight()-(rightLeg.at(1)+getWindowHeight()/2)), 20, 20);
+        gl::drawLine(vec2(0,getWindowHeight()),vec2(rightLeg.at(0)+getWindowWidth()/2, getWindowHeight()-(rightLeg.at(1)+getWindowHeight()/2)));
+    }
+    // head - TEAL
+    if(head.size() > 0) {
+        gl::color(0,1,1);
+        gl::drawSolidEllipse(vec2(head.at(0)+getWindowWidth()/2, getWindowHeight()-(head.at(1)+getWindowHeight()/2)), 20, 20);
+        gl::drawLine(vec2(0,300), vec2(head.at(0)+getWindowWidth()/2, getWindowHeight()-(head.at(1)+getWindowHeight()/2)));
+    }
+}
+
+std::vector<float> NewProjectApp::breakUp(string temp) {
+    std::vector<float> vect;
+    std::string delimiter = ",";
+    size_t pos = 0;
+    std::string token;
+    while ((pos = temp.find(delimiter)) != std::string::npos) {
+        token = temp.substr(0, pos);
+        vect.push_back(stof(token));
+        temp.erase(0, pos + delimiter.length());
+    }
+    return vect;
 }
 
 CINDER_APP( NewProjectApp, RendererGl )
